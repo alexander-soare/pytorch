@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.nn.quantized as nnq
-import torch.nn.quantized._reference as nnqr
 import torch.nn.quantized.dynamic as nnqd
 import torch.nn.intrinsic as nni
 import torch.nn.intrinsic.quantized as nniq
@@ -493,7 +492,7 @@ class TestQuantizeFx(QuantizationTestCase):
                 Conv1d,
                 conv1d_module_args,
                 (conv1d_input,),
-                ns.call_module(nnqr.Conv1d if is_reference else nnq.Conv1d),
+                ns.call_module(nn.Conv1d if is_reference else nnq.Conv1d),
                 None
             ),
             (
@@ -501,7 +500,7 @@ class TestQuantizeFx(QuantizationTestCase):
                 Conv2d,
                 conv2d_module_args,
                 (conv2d_input,),
-                ns.call_module(nnqr.Conv2d if is_reference else nnq.Conv2d),
+                ns.call_module(nn.Conv2d if is_reference else nnq.Conv2d),
                 None
             ),
             (
@@ -509,7 +508,7 @@ class TestQuantizeFx(QuantizationTestCase):
                 Conv3d,
                 conv3d_module_args,
                 (conv3d_input,),
-                ns.call_module(nnqr.Conv3d if is_reference else nnq.Conv3d),
+                ns.call_module(nn.Conv3d if is_reference else nnq.Conv3d),
                 None
             ),
             (
@@ -652,7 +651,8 @@ class TestQuantizeFx(QuantizationTestCase):
                 x = self.dequant(x)
                 return x
 
-        options = itertools.product([1, 2, 3], [True, False], self.static_quant_types)
+        # TODO: add 1d support
+        options = itertools.product([2, 3], [True, False], self.static_quant_types)
         for dim, has_relu, quant_type in options:
             expected_node = ns.call_module(
                 quantized_conv_relus[dim] if has_relu
