@@ -8,6 +8,7 @@
 namespace torch {
 namespace jit {
 namespace {
+
 void makePointerToImpl(Element* from, Element* to) {
   from->pointsTo.set(to->index);
   to->pointedFrom.set(from->index);
@@ -131,6 +132,8 @@ Element* MemoryDAGBuilder::makeFreshValue(const Value* v) {
   return makeFreshValueImpl(v, indexToElementMap_);
 }
 
+// This function builds up a bitset representing the "alias set" for
+// `e` (`MemoryLocations` is just a typedef'd c10::SparseBitVector).
 const MemoryLocations& MemoryDAG::getMemoryLocations(const Element* e) const {
   // Note on cache invalidation: all mutation should occur through
   // MemoryDAGBuilder. Thus, once we consume the builder to create an immutable
@@ -158,7 +161,8 @@ const MemoryLocations& MemoryDAG::getMemoryLocations(const Element* e) const {
 void MemoryDAG::setWildcards(
     const std::unordered_set<const Value*>& wildcards,
     const ska::flat_hash_map<const Value*, Element*>& elementMap,
-    const std::function<Element*(const Value*)>& getWildcardElement) {
+    const std::function<Element*(const Value*)>&
+        getWildcardElement) {
   std::unordered_map<Element*, MemoryLocations> cacheUpdates;
   // If an element is set as a wildcard, that means that all its memory
   // locations must point to the wildcard element.
@@ -174,7 +178,6 @@ void MemoryDAG::setWildcards(
         makePointerToImpl(from, wildcardElement);
       }
     }
-
     // Track which memory locations we edited with a new pointer to the wildcard
     // element.
     cacheUpdates[wildcardElement] |= pointeeSet;
@@ -189,7 +192,6 @@ void MemoryDAG::setWildcards(
   for (const std::unique_ptr<Element>& e : this->indexToElementMap_) {
     if (e->values.empty()) {
       // This element is a wildcard element, we can skip it.
-      TORCH_INTERNAL_ASSERT(e->pointsTo.empty());
       continue;
     }
 

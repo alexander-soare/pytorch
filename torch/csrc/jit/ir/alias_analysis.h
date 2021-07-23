@@ -42,6 +42,7 @@ class AliasDb {
       bool isFrozen = false);
   TORCH_API ~AliasDb();
 
+
   // There are limitations to what effects the alias analysis can track. Two
   // kinds of nodes may have untracked effects:
   // 1. Nodes that write to a value that may alias the graph inputs (since
@@ -125,6 +126,10 @@ class AliasDb {
   TORCH_API bool dumpToGraphvizFile(const char* filename) const;
   TORCH_API std::string toGraphviz() const;
 
+  // Returns `true` if the given element is mutable or if it is a
+  // container type with an internal mutable element (e.g.
+  // `Tuple[int, Tensor]` has an internal mutable type `Tensor`, so
+  // it would be considered a "mutable type" in AliasDb)
   static bool isMutableType(const Value* v);
   static bool isMutableType(const TypePtr& type);
 
@@ -221,10 +226,9 @@ class AliasDb {
       bool add_wildcard_to_contained_elems = true);
   Element* getOrCreateElement(const Value* value);
 
-  c10::optional<TypePtr> getMutableTypePtr(const TypePtr& type) const;
+  c10::optional<AliasTypeSet> mapTypeToAliasTypeSetPtr(
+      const TypePtr& type) const;
   bool functionalNonEscapingListUse(const Use& use) const;
-
-  bool isContainerType(const TypePtr& type) const;
 
   std::shared_ptr<Graph> graph_;
 
@@ -245,7 +249,10 @@ class AliasDb {
   c10::optional<Element*> tryGetOrCreateWildcard(const TypePtr& type);
   void addContainedTypesToFreshElement(
       Element* container_elem,
-      const TypePtr& mut_type);
+      const AliasTypeSet& mut_types);
+  void pointUnionTypeElementToAllContainedTypes(
+        Element* container_elem,
+        const AliasTypeSet& mut_types);
 
   std::vector<Element*> getElements(at::ArrayRef<Value*> vs) const;
   bool mayAliasWildcard(const Value* v) const;
@@ -253,7 +260,7 @@ class AliasDb {
   bool hasWriters(const at::ArrayRef<Value*>& values) const;
 
   // cached mapping of type ptrs to their mutable types
-  mutable std::unordered_map<TypePtr, TypePtr> mapped_mutable_types_;
+  mutable std::unordered_map<TypePtr, AliasTypeSet> mapped_mutable_types_;
 
   /**
    * State for tracking write info.
